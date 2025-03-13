@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Кольцевые часы</title>
+    <style>
+        body {
+            margin: 0;
+            background: #808080;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        canvas {
+            position: absolute;
+        }
+        .settings-container {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+        .settings {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            opacity: 0;
+            transform: translateY(-100%);
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        .settings.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .toggle-btn {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: background 0.3s;
+        }
+        .toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+        .close-btn {
+            position: absolute;
+            top: 180px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 3px;
+            transition: background 0.3s;
+        }
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Анимация для полосок */
+        .ring {
+            transition: width 1s, opacity 1s;
+            display: block;
+        }
+
+        /* Скрытие полоски после завершения анимации */
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="clockCanvas"></canvas>
+    <div class="settings-container">
+        <button class="toggle-btn" onclick="toggleSettings()">Настройки</button>
+        <div class="settings">
+            <button class="close-btn" onclick="toggleSettings()">Закрыть</button>
+            <label><input type="checkbox" id="toggleYear" checked> Год</label>
+       <label><input type="checkbox" id="toggleMonth"> Месяц</label>
+            <label><input type="checkbox" id="toggleDay" checked> День</label>
+            <label><input type="checkbox" id="toggleHours" checked> Часы</label>
+            <label><input type="checkbox" id="toggleMinutes" checked> Минуты</label>
+            <label><input type="checkbox" id="toggleSeconds" checked> Секунды</label>
+        </div>
+    </div>
+
+    <script>
+        const settingsPanel = document.querySelector(".settings");
+        function toggleSettings() {
+            settingsPanel.classList.toggle("visible");
+        }
+
+        const canvas = document.getElementById("clockCanvas");
+        const ctx = canvas.getContext("2d");
+        let width, height, centerX, centerY;
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            centerX = width / 2;
+            centerY = height / 2;
+        }
+
+        window.addEventListener("resize", resizeCanvas);
+        resizeCanvas();
+
+        function drawRing(progress, targetProgress, radius, thickness, color, isEnabled, opacity) {
+            ctx.beginPath();
+            let startAngle = Math.PI * 1.5;
+            let endAngle = startAngle + progress * Math.PI * 2;
+            ctx.arc(centerX, centerY, radius, startAngle, endAngle, false);
+            ctx.lineWidth = thickness;
+            ctx.strokeStyle = color;
+            ctx.globalAlpha = opacity;  // Управляем прозрачностью
+            ctx.lineCap = "round";
+            ctx.stroke();
+            return progress + (targetProgress - progress) * 0.05;
+        }
+
+        let secondProgress = 0, minuteProgress = 0, hourProgress = 0, dayProgress = 0, monthProgress = 0, yearProgress = 0;
+        let startTime = performance.now();
+
+        let yearVisible = true, monthVisible = true, dayVisible = true, hourVisible = true, minuteVisible = true, secondVisible = true;
+
+        function animate(time) {
+            let elapsedTime = (time - startTime) / 1000;
+            let animationSpeed = Math.min(elapsedTime / 2, 1);
+
+            const now = new Date();
+            let sec = now.getSeconds() + now.getMilliseconds() / 1000;
+            let min = now.getMinutes() + sec / 60;
+            let hour = now.getHours() + min / 60;
+            let day = now.getDate();
+            let month = now.getMonth() + 1 + (day / 31);
+            let yearProgressCalc = (now - new Date(now.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24 * 365);
+
+            ctx.clearRect(0, 0, width, height);
+
+            let showYear = document.getElementById("toggleYear").checked;
+            let showMonth = document.getElementById("toggleMonth").checked;
+            let showDay = document.getElementById("toggleDay").checked;
+            let showHours = document.getElementById("toggleHours").checked;
+            let showMinutes = document.getElementById("toggleMinutes").checked;
+            let showSeconds = document.getElementById("toggleSeconds").checked;
+
+            // Управление отображением и анимацией полосок
+            let yearOpacity = 1;
+            let monthOpacity = 1;
+            let dayOpacity = 1;
+            let hourOpacity = 1;
+            let minuteOpacity = 1;
+            let secondOpacity = 1;
+
+            // Анимация, пока полоска уменьшается, она становится прозрачной
+            if (showYear) {
+                yearVisible = true;
+                yearProgress = drawRing(yearProgress, yearProgressCalc * animationSpeed, 60, 28, "#BBB", true, yearOpacity);
+            } else {
+                if (yearVisible) {
+                    yearProgress = drawRing(yearProgress, 0, 60, 28, "#BBB", false, 0);  // Анимация исчезновения
+                    yearVisible = false; // После завершения анимации скрываем
+                }
+            }
+
+            if (showMonth) {
+                monthVisible = true;
+                monthProgress = drawRing(monthProgress, (month / 12) * animationSpeed, 120, 10, "#AAA", true, monthOpacity);
+            } else {
+                if (monthVisible) {
+                    monthProgress = drawRing(monthProgress, 0, 120, 10, "#AAA", false, 0); // Анимация исчезновения
+                    monthVisible = false;
+                }
+            }
+
+            if (showDay) {
+                dayVisible = true;
+                dayProgress = drawRing(dayProgress, (day / 31) * animationSpeed, 90, 18, "#FFF", true, dayOpacity);
+            } else {
+                if (dayVisible) {
+                    dayProgress = drawRing(dayProgress, 0, 90, 18, "#FFF", false, 0);  // Анимация исчезновения
+                    dayVisible = false;
+                }
+            }
+
+            if (showHours) {
+                hourVisible = true;
+                hourProgress = drawRing(hourProgress, (hour / 24) * animationSpeed, 140, 30, "#000", true, hourOpacity);
+            } else {
+                if (hourVisible) {
+                    hourProgress = drawRing(hourProgress, 0, 140, 30, "#000", false, 0);  // Анимация исчезновения
+                    hourVisible = false;
+                }
+            }
+
+            if (showMinutes) {
+                minuteVisible = true;
+                minuteProgress = drawRing(minuteProgress, (min / 60) * animationSpeed, 165, 12, "#444", true, minuteOpacity);
+            } else {
+                if (minuteVisible) {
+                    minuteProgress = drawRing(minuteProgress, 0, 165, 12, "#444", false, 0); // Анимация исчезновения
+                    minuteVisible = false;
+                }
+            }
+
+            if (showSeconds) {
+                secondVisible = true;
+                secondProgress = drawRing(secondProgress, (sec / 60) * animationSpeed, 180, 8, "#FFA500", true, secondOpacity);
+            } else {
+                if (secondVisible) {
+                    secondProgress = drawRing(secondProgress, 0, 180, 8, "#FFA500", false, 0); // Анимация исчезновения
+                    secondVisible = false;
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        animate(performance.now());
+    </script>
+</body>
+</html>
